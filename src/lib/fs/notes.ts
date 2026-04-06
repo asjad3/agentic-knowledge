@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
+import type { InValue } from "@libsql/client";
 import { getDb } from "@/lib/db";
 import { ensureVault, resolveNotePath } from "./vault";
 import type { Note, TagInfo, NoteWithContent } from "@/types";
@@ -47,12 +48,12 @@ export async function writeNote(
 
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
 
-  const fm = { ...frontmatter, modified: new Date().toISOString() };
+  const fm: Record<string, unknown> = { ...frontmatter, modified: new Date().toISOString() };
   if (!fm.created) fm.created = fm.modified;
 
   const fileContent = matter.stringify(contentBody, fm);
   fs.writeFileSync(filePath, fileContent, "utf-8");
-  await upsertNoteToDb(filePath, fileContent, contentBody, fm);
+  await upsertNoteToDb(filePath, contentBody, fm);
 }
 
 export async function createNote(
@@ -68,7 +69,7 @@ export async function createNote(
   const category = relativePath.split(path.sep)[0] ?? "inbox";
   const now = new Date().toISOString();
 
-  const fm = {
+  const fm: Record<string, unknown> = {
     title,
     slug,
     created: now,
@@ -83,12 +84,12 @@ export async function createNote(
   const fileContent = matter.stringify(content, fm);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(filePath, fileContent, "utf-8");
-  await upsertNoteToDb(filePath, fileContent, content, fm);
+  await upsertNoteToDb(filePath, content, fm);
 
   return (await readNote(relativePath.split(path.sep)))!;
 }
 
-export async function deleteNoteNote(slugs: string[]): Promise<boolean> {
+export async function deleteNote(slugs: string[]): Promise<boolean> {
   const filePath = resolveNotePath(slugs);
   if (!fs.existsSync(filePath)) return false;
   fs.unlinkSync(filePath);
@@ -109,7 +110,6 @@ export async function listTags(): Promise<TagInfo[]> {
 
 async function upsertNoteToDb(
   filePath: string,
-  fullContent: string,
   contentBody: string,
   fm: Record<string, unknown>,
 ): Promise<void> {
@@ -121,6 +121,20 @@ async function upsertNoteToDb(
   const tags = Array.isArray(fm.tags) ? fm.tags as string[] : [];
   const category = (fm.category as string) ?? relPath.split(path.sep)[0] ?? "inbox";
 
+  const args: InValue[] = [
+    relPath,
+    title,
+    slug,
+    (fm.created as string) ?? stat.birthtime.toISOString(),
+    fm.modified as string,
+    contentBody.trim().slice(0, 200),
+    contentBody.trim().split(/\s+/).filter(Boolean).length,
+    category,
+    (fm.source as string) ?? "manual",
+    (fm.source_url as string) ?? "",
+    fm.pinned ? 1 : 0,
+  ];
+
   const db = getDb();
 
   await db.execute({
@@ -130,19 +144,7 @@ async function upsertNoteToDb(
        title=excluded.title, slug=excluded.slug, modified_at=excluded.modified_at,
        content_preview=excluded.content_preview, word_count=excluded.word_count,
        category=excluded.category, source=excluded.source, source_url=excluded.source_url, pinned=excluded.pinned`,
-    args: [
-      relPath,
-      title,
-      slug,
-      (fm.created as string) ?? stat.birthtime.toISOString(),
-      fm.modified as string,
-      contentBody.trim().slice(0, 200),
-      contentBody.trim().split(/\s+/).filter(Boolean).length,
-      category,
-      fm.source ?? "manual",
-      fm.source_url ?? "",
-      fm.pinned ? 1 : 0,
-    ],
+    args,
   });
 
   const noteRow = await db.execute({ sql: "SELECT id FROM notes WHERE file_path = ?", args: [relPath] });

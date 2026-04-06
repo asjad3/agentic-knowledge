@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAllRules, createRule, updateRule, deleteRule } from "@/lib/rules/db";
+import { getAllRules, createRule, updateRule, deleteRuleFn } from "@/lib/rules/db";
 
 export async function GET() {
   try {
@@ -54,7 +54,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "id is required" }, { status: 400 });
     }
 
-    const success = await deleteRule(id);
+    const success = await deleteRuleFn(id);
     return NextResponse.json({ success });
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });

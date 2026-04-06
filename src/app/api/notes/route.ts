@@ -11,29 +11,26 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get("category");
 
     const db = getDb();
-    let where = "";
-    const params: (string | number)[] = [];
 
     if (category) {
-      where = "WHERE category = ?";
-      params.push(category);
+      const countResult = await db.execute({ sql: "SELECT COUNT(*) as total FROM notes WHERE category = ?", args: [category] });
+      const total = countResult.rows[0]?.total as number;
+      const offset = (page - 1) * limit;
+      const notes = await db.execute({
+        sql: `SELECT * FROM notes WHERE category = ? ORDER BY ${sort === "title" ? "title ASC" : "modified_at DESC"} LIMIT ${limit} OFFSET ${offset}`,
+        args: [category],
+      });
+      return NextResponse.json({ notes: notes.rows, total, page, limit });
+    } else {
+      const countResult = await db.execute({ sql: "SELECT COUNT(*) as total FROM notes", args: [] });
+      const total = countResult.rows[0]?.total as number;
+      const offset = (page - 1) * limit;
+      const notes = await db.execute({
+        sql: `SELECT * FROM notes ORDER BY ${sort === "title" ? "title ASC" : "modified_at DESC"} LIMIT ${limit} OFFSET ${offset}`,
+        args: [],
+      });
+      return NextResponse.json({ notes: notes.rows, total, page, limit });
     }
-
-    const countResult = await db.execute({ sql: `SELECT COUNT(*) as total FROM notes ${where}`, args: params });
-    const total = countResult.rows[0]?.total as number;
-
-    const offset = (page - 1) * limit;
-    const notes = await db.execute({
-      sql: `SELECT * FROM notes ${where} ORDER BY ${sort === "title" ? "title ASC" : "modified_at DESC"} LIMIT ? OFFSET ?`,
-      args: [...params, limit, offset],
-    });
-
-    return NextResponse.json({
-      notes: notes.rows,
-      total,
-      page,
-      limit,
-    });
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }
@@ -42,18 +39,14 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { path: relPath, title, content, category, tags } = body;
+    const { path: relPath, title, content } = body;
 
     if (!title) {
       return NextResponse.json({ error: "Title is required" }, { status: 400 });
     }
 
     const notePath = relPath || `inbox/${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}.md`;
-    const fm: Record<string, unknown> = {};
-    if (tags) fm.tags = tags;
-    if (category) fm.source = category;
-
-    const note = createNote(notePath, title, content ?? "", fm);
+    const note = await createNote(notePath, title, content ?? "");
     return NextResponse.json({ note }, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });

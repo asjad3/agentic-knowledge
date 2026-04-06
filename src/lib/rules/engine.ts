@@ -1,26 +1,26 @@
 import fs from "fs";
 import path from "path";
 import type { NoteWithContent, Rule, RuleCondition, RuleAction, RuleResult } from "@/types";
-import { ensureVault } from "@/lib/fs/vault";
+import { ensureVault, resolveNotePath } from "@/lib/fs/vault";
 import { writeNote, readNote, deleteNote } from "@/lib/fs/notes";
 
-export function evaluateRules(note: NoteWithContent, rules: Rule[]): RuleResult[] {
+export async function evaluateRules(note: NoteWithContent, rules: Rule[]): Promise<RuleResult[]> {
   const sorted = rules.filter((r) => r.enabled).sort((a, b) => b.priority - a.priority);
   const results: RuleResult[] = [];
+  let currentNote = { ...note };
 
   for (const rule of sorted) {
-    if (!testCondition(note, rule.condition)) {
+    if (!testCondition(currentNote, rule.condition)) {
       results.push({ ruleId: rule.id, fired: false });
       continue;
     }
 
     try {
-      const actionResult = executeAction(rule.action, note);
+      const actionResult = await executeAction(rule.action, currentNote);
       results.push({ ruleId: rule.id, fired: true, actionTaken: actionResult });
-      // Re-read note after action since state may have changed
-      const noteWithContent = readNote(note.file_path.split(path.sep));
-      if (noteWithContent) Object.assign(note, noteWithContent);
-    } catch (e) {
+      const updated = await readNote(currentNote.file_path.split(path.sep));
+      if (updated) Object.assign(currentNote, updated);
+    } catch (e: unknown) {
       results.push({ ruleId: rule.id, fired: false, error: String(e) });
     }
   }
@@ -71,7 +71,7 @@ function opMatch(actual: string, operator: string, value: string): boolean {
   }
 }
 
-export function executeAction(action: RuleAction, note: NoteWithContent): string {
+async function executeAction(action: RuleAction, note: NoteWithContent): Promise<string> {
   const vaultPath = ensureVault();
 
   switch (action.type) {
@@ -84,21 +84,21 @@ export function executeAction(action: RuleAction, note: NoteWithContent): string
       if (oldPath !== newPath && fs.existsSync(oldPath)) {
         fs.mkdirSync(path.dirname(newPath), { recursive: true });
         fs.renameSync(oldPath, newPath);
-        deleteNote(note.file_path.split(path.sep));
+        await deleteNote(note.file_path.split(path.sep));
       }
       return `Moved to ${newRelPath}`;
     }
     case "tag": {
       if (!note.tags.includes(action.target)) {
         const fm = { ...note.frontmatter, tags: [...note.tags, action.target] };
-        writeNote(note.file_path.split(path.sep), note.content, fm);
+        await writeNote(note.file_path.split(path.sep), note.content, fm);
       }
       return `Added tag: ${action.target}`;
     }
     case "categorize": {
       if (note.category !== action.target) {
         const fm = { ...note.frontmatter, category: action.target };
-        writeNote(note.file_path.split(path.sep), note.content, fm);
+        await writeNote(note.file_path.split(path.sep), note.content, fm);
       }
       return `Categorized as: ${action.target}`;
     }

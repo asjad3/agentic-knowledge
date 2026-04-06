@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readNote, writeNote, deleteNote } from "@/lib/fs/notes";
+import { readNote, writeNote, deleteNote, createNote } from "@/lib/fs/notes";
 import { evaluateRules } from "@/lib/rules/engine";
 import { getAllRules } from "@/lib/rules/db";
 
@@ -8,7 +8,7 @@ type Params = { slugs: string[] };
 export async function GET(_request: NextRequest, { params }: { params: Promise<Params> }) {
   try {
     const { slugs } = await params;
-    const note = readNote(slugs);
+    const note = await readNote(slugs);
     if (!note) {
       return NextResponse.json({ error: "Note not found" }, { status: 404 });
     }
@@ -28,15 +28,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<Pa
       return NextResponse.json({ error: "Content is required" }, { status: 400 });
     }
 
-    const note = readNote(slugs);
+    const note = await readNote(slugs);
     if (!note) {
       return NextResponse.json({ error: "Note not found" }, { status: 404 });
     }
 
     const fm = frontmatter ?? note.frontmatter ?? {};
-    writeNote(slugs, content, fm);
+    await writeNote(slugs, content, fm);
 
-    const updated = readNote(slugs)!;
+    const updated = await readNote(slugs)!;
     return NextResponse.json({ note: updated });
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });
@@ -48,7 +48,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { slugs } = await params;
     const body = await request.json();
 
-    const note = readNote(slugs);
+    const note = await readNote(slugs);
     if (!note) {
       return NextResponse.json({ error: "Note not found" }, { status: 404 });
     }
@@ -61,15 +61,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (body.pinned !== undefined) fm.pinned = body.pinned;
 
     const contentBody = body.content ?? note.content;
-    writeNote(slugs, contentBody, fm);
+    await writeNote(slugs, contentBody, fm);
 
     if (body.tags !== undefined || body.category !== undefined) {
       const rules = await getAllRules();
-      const updatedNote = readNote(slugs)!;
+      const updatedNote = (await readNote(slugs))!;
       evaluateRules(updatedNote, rules);
     }
 
-    const updated = readNote(slugs)!;
+    const updated = await readNote(slugs)!;
     return NextResponse.json({ note: updated });
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });
@@ -79,7 +79,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 export async function DELETE(_request: NextRequest, { params }: { params: Promise<Params> }) {
   try {
     const { slugs } = await params;
-    const success = deleteNote(slugs);
+    const success = await deleteNote(slugs);
     if (!success) {
       return NextResponse.json({ error: "Note not found" }, { status: 404 });
     }

@@ -1,4 +1,5 @@
-import { createClient, type Client } from "@libsql/client";
+import { createClient, type Client, type InValue } from "@libsql/client";
+export type { InValue };
 import path from "path";
 
 let db: Client | null = null;
@@ -11,18 +12,18 @@ export function getDb(): Client {
   return db;
 }
 
-export async function dbRun(sql: string, args: unknown[] = []): Promise<void> {
+export async function dbRun(sql: string, args: InValue[] = []): Promise<void> {
   const db = getDb();
   await db.execute({ sql, args });
 }
 
-export async function dbGet(sql: string, args: unknown[] = []) {
+export async function dbGet(sql: string, args: InValue[] = []) {
   const db = getDb();
   const res = await db.execute({ sql, args });
   return res.rows[0] ?? null;
 }
 
-export async function dbAll(sql: string, args: unknown[] = []) {
+export async function dbAll(sql: string, args: InValue[] = []) {
   const db = getDb();
   const res = await db.execute({ sql, args });
   return res.rows;

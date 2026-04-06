@@ -14,14 +14,14 @@ export async function createRule(data: Omit<Rule, "id" | "created_at">): Promise
   });
   const row = await db.execute({
     sql: "SELECT * FROM rules WHERE id = ?",
-    args: [result.lastInsertRowid as number],
+    args: [Number(result.lastInsertRowid)],
   });
   return rowToRule(row.rows[0]!);
 }
 
 export async function updateRule(id: number, data: Partial<Rule>): Promise<Rule | null> {
   const sets: string[] = [];
-  const vals: unknown[] = [];
+  const vals: (string | number | null)[] = [];
 
   if (data.name !== undefined) { sets.push("name = ?"); vals.push(data.name); }
   if (data.description !== undefined) { sets.push("description = ?"); vals.push(data.description); }
@@ -39,9 +39,8 @@ export async function updateRule(id: number, data: Partial<Rule>): Promise<Rule 
   return row ? rowToRule(row) : null;
 }
 
-export async function deleteRule(id: number): Promise<boolean> {
-  const result = await dbRun("DELETE FROM rules WHERE id = ?", [id]);
-  // libsql doesn't expose rowsAffected in the result, so check if it exists
+export async function deleteRuleFn(id: number): Promise<boolean> {
+  await dbRun("DELETE FROM rules WHERE id = ?", [id]);
   const row = await dbGet("SELECT id FROM rules WHERE id = ?", [id]);
   return !row;
 }
