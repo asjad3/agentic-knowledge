@@ -120,6 +120,7 @@ async function upsertNoteToDb(
   const slug = (fm.slug as string) ?? path.basename(filePath, ".md");
   const tags = Array.isArray(fm.tags) ? fm.tags as string[] : [];
   const category = (fm.category as string) ?? relPath.split(path.sep)[0] ?? "inbox";
+  const memoryType = fm.memory_type as string | undefined;
 
   const args: InValue[] = [
     relPath,
@@ -133,17 +134,22 @@ async function upsertNoteToDb(
     (fm.source as string) ?? "manual",
     (fm.source_url as string) ?? "",
     fm.pinned ? 1 : 0,
+    memoryType ?? null,
   ];
+
+  const cols = "file_path, title, slug, created_at, modified_at, content_preview, word_count, category, source, source_url, pinned, memory_type";
+  const placeholders = "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?";
 
   const db = getDb();
 
   await db.execute({
-    sql: `INSERT INTO notes (file_path, title, slug, created_at, modified_at, content_preview, word_count, category, source, source_url, pinned)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    sql: `INSERT INTO notes (${cols})
+     VALUES (${placeholders})
      ON CONFLICT(file_path) DO UPDATE SET
        title=excluded.title, slug=excluded.slug, modified_at=excluded.modified_at,
        content_preview=excluded.content_preview, word_count=excluded.word_count,
-       category=excluded.category, source=excluded.source, source_url=excluded.source_url, pinned=excluded.pinned`,
+       category=excluded.category, source=excluded.source, source_url=excluded.source_url, pinned=excluded.pinned,
+       memory_type=excluded.memory_type`,
     args,
   });
 

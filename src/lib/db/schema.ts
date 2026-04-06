@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS notes (
   category        TEXT    NOT NULL DEFAULT 'inbox',
   source          TEXT    NOT NULL DEFAULT 'manual',
   source_url      TEXT    NOT NULL DEFAULT '',
-  pinned          INTEGER NOT NULL DEFAULT 0
+  pinned          INTEGER NOT NULL DEFAULT 0,
+  memory_type     TEXT    DEFAULT NULL
 );
 
 CREATE TABLE IF NOT EXISTS tags (
