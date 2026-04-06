@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# knowledge vault (keep directory but not content)
+*.db
+*.db-*
+kb-vault/**/*.md
+kb-vault/**/*.*
+!kb-vault/**/.gitkeep
