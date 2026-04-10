@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "agentic-knowledge": {
+      "command": "npm",
+      "args": ["run", "mcp"],
+      "cwd": "C:\\Users\\Asjad\\agentic-knowledge"
+    }
+  }
+}

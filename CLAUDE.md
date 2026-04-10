@@ -91,6 +91,12 @@ Memories are notes stored in `kb-vault/memories/{type}/` with a `memory_type` fr
 - `KB_VAULT_PATH` — path to the vault directory (default: `./kb-vault`)
 - `KB_DB_PATH` — path to the SQLite database file (default: `./kb-vault/.index.db`)
 
+### MCP Server Configuration
+
+The `.mcp.json` at the project root registers this server with Claude Code automatically. No manual config needed — Claude Code picks it up on startup.
+
+The server exposes five tools: `write_memory`, `read_memory`, `search_memories`, `delete_memory`, `list_memory_types`. It communicates over stdio and requires the vault and DB to be initialized (run `npm run dev` at least once first to create `kb-vault/` and `.index.db`).
+
 ### Important Notes for Future Instances
 
 - All note modifications go through the filesystem; the SQLite index is a secondary projection.
